@@ -3,7 +3,7 @@ package models;
 import java.time.Instant;
 
 public class Expense {
-
+    
     private int id;
     private String description;
     private double amount;
@@ -66,6 +66,12 @@ public class Expense {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    @Override
+    public String toString() {
+        return "Expense [id=" + id + ", description=" + description + ", amount=" + amount + ", categoryId="
+                + categoryId + ", createdAt=" + createdAt + ", updatedAt=" + updatedAt + "]";
     }
     
     

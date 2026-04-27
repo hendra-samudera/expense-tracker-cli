@@ -1,6 +1,7 @@
 package services;
 
 import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import models.Expense;
@@ -15,6 +16,12 @@ public class ExpenseService {
 
     public List<Expense> getAllExpenses() {
         return expenses;
+    }
+
+    public List<String[]> getAllExpensesAsCSV() {
+        return expenses.stream()
+                .map(this::expenseToArray)
+                .toList();
     }
 
     public int addExpense(String description, double amount, int categoryId) {
@@ -40,5 +47,16 @@ public class ExpenseService {
             }
         }
         return false;
+    }
+
+    private String[] expenseToArray(Expense expense) {
+        return new String[] {
+            String.valueOf(expense.getId()),
+            expense.getDescription(),
+            String.valueOf(expense.getAmount()),
+            String.valueOf(expense.getCategoryId()),
+            expense.getCreatedAt().toString(),
+            expense.getUpdatedAt() != null ? expense.getUpdatedAt().toString() : "null"
+        };
     }
 }
