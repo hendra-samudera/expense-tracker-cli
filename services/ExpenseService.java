@@ -3,8 +3,10 @@ package services;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import models.Expense;
+import utils.PrintHelper;
 
 public class ExpenseService {
 
@@ -36,6 +38,17 @@ public class ExpenseService {
         return expenses.removeIf(expense -> expense.getId() == id);
     }
 
+    public void listExpenses() {
+        PrintHelper.printExpenseAsTable(expenses);
+    }
+
+    public void summarizeExpenses() {
+        double summary = expenses.stream()
+                .collect(
+                        Collectors.summingDouble(Expense::getAmount));
+        System.out.printf("Total Amount: %.2f%n", summary);
+    }
+
     public boolean updateExpense(int id, String description, double amount, int categoryId) {
         for (Expense expense : expenses) {
             if (expense.getId() == id) {
@@ -51,12 +64,12 @@ public class ExpenseService {
 
     private String[] expenseToArray(Expense expense) {
         return new String[] {
-            String.valueOf(expense.getId()),
-            expense.getDescription(),
-            String.valueOf(expense.getAmount()),
-            String.valueOf(expense.getCategoryId()),
-            expense.getCreatedAt().toString(),
-            expense.getUpdatedAt() != null ? expense.getUpdatedAt().toString() : "null"
+                String.valueOf(expense.getId()),
+                expense.getDescription(),
+                String.valueOf(expense.getAmount()),
+                String.valueOf(expense.getCategoryId()),
+                expense.getCreatedAt().toString(),
+                expense.getUpdatedAt() != null ? expense.getUpdatedAt().toString() : "null"
         };
     }
 }

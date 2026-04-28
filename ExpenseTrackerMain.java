@@ -28,6 +28,9 @@ public class ExpenseTrackerMain implements Callable<Integer>{
     @Option(names = {"-a", "--amount"}, description = "Amount of the expense")
     private double amount;
 
+    @Option(names = {"-i", "--id"}, description = "ID of the expense")  
+    private int expenseId;
+
     @Override
     public Integer call() throws Exception {
         List<String[]> expenses = new ArrayList<String[]>();
@@ -61,16 +64,18 @@ public class ExpenseTrackerMain implements Callable<Integer>{
                 utils.CsvHelper.writeCSV(expenseService.getAllExpensesAsCSV(), FILE_PATH.toFile());
                 break;
             case "delete":
-                
+                expenseService.deleteExpense(expenseId);
+                utils.CsvHelper.writeCSV(expenseService.getAllExpensesAsCSV(), FILE_PATH.toFile());
                 break;
             case "update":
-                
+                expenseService.updateExpense(expenseId, description, amount, 0);
+                utils.CsvHelper.writeCSV(expenseService.getAllExpensesAsCSV(), FILE_PATH.toFile());
                 break;
             case "list":
-                
+                expenseService.listExpenses();
                 break;
             case "summary":
-                
+                expenseService.summarizeExpenses();
                 break;
             default:
                 break;
