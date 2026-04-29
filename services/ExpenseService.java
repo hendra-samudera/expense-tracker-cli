@@ -1,6 +1,8 @@
 package services;
 
 import java.time.Instant;
+import java.time.Month;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -42,11 +44,19 @@ public class ExpenseService {
         PrintHelper.printExpenseAsTable(expenses);
     }
 
-    public void summarizeExpenses() {
+    public void summarizeExpenses(Month month) {
+        if (month == null) {
+            double summary = expenses.stream()
+                    .collect(
+                            Collectors.summingDouble(Expense::getAmount));
+            System.out.printf("Total Amount for all months: %.2f%n", summary);
+            return;
+        }
         double summary = expenses.stream()
+                .filter(expense -> expense.getCreatedAt().atZone(ZoneId.systemDefault()).getMonth() == month)
                 .collect(
                         Collectors.summingDouble(Expense::getAmount));
-        System.out.printf("Total Amount: %.2f%n", summary);
+        System.out.printf("Total Amount for %s: %.2f%n", month, summary);
     }
 
     public boolean updateExpense(int id, String description, double amount, int categoryId) {
