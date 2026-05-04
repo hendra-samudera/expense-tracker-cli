@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 
+import models.Category;
 import models.Expense;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -15,14 +16,17 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.ParameterException;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
+import services.CategoryService;
 import services.ExpenseService;
 import utils.CsvHelper;
+import utils.PrintHelper;
 import validations.ExpenseValidation;
 
 @Command(name = "expense-tracker", mixinStandardHelpOptions = true, version = "expense 1.0",
          description = "Tracks and manages your expenses.")
 public class ExpenseTrackerMain implements Callable<Integer>{
-    private final static Path FILE_PATH = Path.of("expense.csv");
+    private final static Path EXPENSE_FILE_PATH = Path.of("expense.csv");
+    private final static Path CATEGORY_FILE_PATH = Path.of("category.csv");
 
     @Spec CommandSpec spec;
 
@@ -41,6 +45,12 @@ public class ExpenseTrackerMain implements Callable<Integer>{
     @Option(names = {"-m", "--month"}, description = "Month for summary (e.g., JANUARY, FEBRUARY, etc.)")
     private Month month;
 
+    @Option(names = {"-n", "--name"}, description = "Category name")
+    private String categoryName;
+
+    @Option(names = {"-c", "--category-id"}, description = "ID of the category")
+    private Integer categoryId = null;
+
     @Override
     public Integer call() throws Exception {
         if (!ExpenseValidation.validateAmount(amount)) {
@@ -49,12 +59,19 @@ public class ExpenseTrackerMain implements Callable<Integer>{
         }
 
         List<String[]> expenses = new ArrayList<String[]>();
-        if (Files.exists(FILE_PATH)) {
-            expenses = CsvHelper.parseCSV(FILE_PATH.toFile());
+        if (Files.exists(EXPENSE_FILE_PATH)) {
+            expenses = CsvHelper.parseCSV(EXPENSE_FILE_PATH.toFile());
         }
         List<Expense> expenseList = getExpenseList(expenses);
 
         ExpenseService expenseService = new ExpenseService(expenseList);
+
+        List<String[]> categories = new ArrayList<String[]>();
+        if (Files.exists(CATEGORY_FILE_PATH)) {
+            categories = CsvHelper.parseCSV(CATEGORY_FILE_PATH.toFile());
+        }
+        List<Category> categoryList = getCategoryList(categories);
+        CategoryService categoryService = new CategoryService(categoryList, expenseService);
         
         switch (command) {
             case "add":
@@ -63,11 +80,11 @@ public class ExpenseTrackerMain implements Callable<Integer>{
                             "Description must be non-empty and less than 50 characters.");
                 }
                 
-                int newExpenseId = expenseService.addExpense(description, amount, 0);
+                int newExpenseId = expenseService.addExpense(description, amount, categoryId);
                 if (newExpenseId == -1) {
                     System.err.println("Failed to add expense. Please check the input values.");
                 } else {
-                    CsvHelper.writeCSV(expenseService.getAllExpensesAsCSV(), FILE_PATH.toFile());
+                    CsvHelper.writeCSV(expenseService.getAllExpensesAsCSV(), EXPENSE_FILE_PATH.toFile());
                     System.out.println("Expense added with ID: " + newExpenseId);
                 }
                 break;
@@ -79,7 +96,7 @@ public class ExpenseTrackerMain implements Callable<Integer>{
                 if(!expenseService.deleteExpense(expenseId)) {
                     System.err.println("Expense with ID " + expenseId + " not found. No deletion performed.");
                 }else{
-                    CsvHelper.writeCSV(expenseService.getAllExpensesAsCSV(), FILE_PATH.toFile());
+                    CsvHelper.writeCSV(expenseService.getAllExpensesAsCSV(), EXPENSE_FILE_PATH.toFile());
                     System.out.println("Expense with ID " + expenseId + " deleted successfully.");
                 }
                 break;
@@ -104,22 +121,59 @@ public class ExpenseTrackerMain implements Callable<Integer>{
                             "--amount must be a non-negative number.");
                 }
 
-                if(!expenseService.updateExpense(expenseId, description, amount, 0)) {
+                if(!expenseService.updateExpense(expenseId, description, amount, categoryId)) {
                     System.err.println("Expense with ID " + expenseId + " not found. No update performed.");
                 }else {
-                    CsvHelper.writeCSV(expenseService.getAllExpensesAsCSV(), FILE_PATH.toFile());
+                    CsvHelper.writeCSV(expenseService.getAllExpensesAsCSV(), EXPENSE_FILE_PATH.toFile());
                     System.out.println("Expense with ID " + expenseId + " updated successfully.");
                 }
                 break;
             case "list":
-                expenseService.listExpenses();
+                PrintHelper.printExpenseAsTable(expenseService.getAllExpenses(), categoryService.getAllCategories());
                 break;
             case "summary":
                 expenseService.summarizeExpenses(month);
                 break;
+            case "add-category":
+                if (categoryName == null) {
+                    throw new ParameterException(spec.commandLine(),
+                            "Category name must be provided for add-category operation.");
+                }
+                int newCategoryId = categoryService.addCategory(categoryName);
+                CsvHelper.writeCSV(categoryService.getAllCategoriesAsCSV(), CATEGORY_FILE_PATH.toFile());
+                System.out.println("Category added with ID: " + newCategoryId);
+                break;
+            case "update-category":
+                if (categoryId == null || categoryName == null) {
+                    throw new ParameterException(spec.commandLine(),
+                            "Category ID and new name must be provided for update-category operation.");
+                }
+                if(!categoryService.updateCategory(categoryId, categoryName)) {
+                    System.err.println("Category with ID " + categoryId + " not found. No update performed.");
+                }else {
+                    CsvHelper.writeCSV(categoryService.getAllCategoriesAsCSV(), CATEGORY_FILE_PATH.toFile());
+                    System.out.println("Category with ID " + categoryId + " updated successfully.");
+                }
+                break;
+            case "list-categories":
+                PrintHelper.printCategoryAsTable(categoryService.getAllCategories());
+                break;
+            case "delete-category":
+                if (categoryId == null) {
+                    throw new ParameterException(spec.commandLine(),
+                            "Category ID must be provided for delete-category operation.");
+                }
+                if(!categoryService.deleteCategory(categoryId)) {
+                    System.err.println("Category with ID " + categoryId + " not found. No deletion performed.");
+                }else{
+                    CsvHelper.writeCSV(categoryService.getAllCategoriesAsCSV(), CATEGORY_FILE_PATH.toFile());
+                    CsvHelper.writeCSV(expenseService.getAllExpensesAsCSV(), EXPENSE_FILE_PATH.toFile());
+                    System.out.println("Category with ID " + categoryId + " deleted successfully.");
+                }
+                break;
             default:
-                throw new ParameterException(spec.commandLine(),
-                        "Invalid command: " + command + ". Valid commands are: add, delete, update, list, summary.");
+                throw new ParameterException(spec.commandLine(),        
+                        "Invalid command: " + command + ". Valid commands are: add, delete, update, list, summary, add-category, list-categories.");
         }
 
         return 0;
@@ -147,6 +201,25 @@ public class ExpenseTrackerMain implements Callable<Integer>{
         return expenseList;
     }
 
+    private List<Category> getCategoryList(List<String[]> categories) {
+        List<Category> categoryList = new ArrayList<>();
+        for (String[] record : categories) {
+            if (record.length >= 4) {
+                try {
+                    int id = Integer.parseInt(record[0]);
+                    String name = record[1];
+                    Instant createdAt = Instant.parse(record[2]);
+                    Instant updatedAt = record.length > 3 && !"null".equals(record[3]) ? Instant.parse(record[3]) : null;
+                    categoryList.add(new Category(id, name, createdAt, updatedAt));
+                } catch (NumberFormatException e) {
+                    System.err.println("Skipping invalid record: " + String.join(",", record));
+                }
+            } else {
+                System.err.println("Skipping incomplete record: " + String.join(",", record));
+            }
+        }
+        return categoryList;
+    }
     
 
     public static void main(String[] args) {

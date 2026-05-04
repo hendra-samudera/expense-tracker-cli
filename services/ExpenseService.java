@@ -3,12 +3,10 @@ package services;
 import java.time.Instant;
 import java.time.Month;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import models.Expense;
-import utils.PrintHelper;
 
 public class ExpenseService {
 
@@ -28,20 +26,17 @@ public class ExpenseService {
                 .toList();
     }
 
-    public int addExpense(String description, double amount, int categoryId) {
+    public int addExpense(String description, double amount, Integer categoryId) {
         int lastId = expenses.size() > 0 ? expenses.get(expenses.size() - 1).getId() : 0;
         int newId = lastId + 1;
-        Expense newExpense = new Expense(newId, description, amount, categoryId, Instant.now(), null);
+        int finalCategoryId = categoryId == null ? 0 : categoryId;
+        Expense newExpense = new Expense(newId, description, amount, finalCategoryId, Instant.now(), null);
         expenses.add(newExpense);
         return newId;
     }
 
     public boolean deleteExpense(int id) {
         return expenses.removeIf(expense -> expense.getId() == id);
-    }
-
-    public void listExpenses() {
-        PrintHelper.printExpenseAsTable(expenses);
     }
 
     public void summarizeExpenses(Month month) {
@@ -59,17 +54,26 @@ public class ExpenseService {
         System.out.printf("Total Amount for %s: %.2f%n", month, summary);
     }
 
-    public boolean updateExpense(int id, String description, double amount, int categoryId) {
+    public boolean updateExpense(int id, String description, double amount, Integer categoryId) {
         for (Expense expense : expenses) {
             if (expense.getId() == id) {
                 expense.setDescription(description == null ? expense.getDescription() : description);
                 expense.setAmount(amount == 0 ? expense.getAmount() : amount);
-                expense.setCategoryId(categoryId == 0 ? expense.getCategoryId() : categoryId);
+                expense.setCategoryId(categoryId == null ? expense.getCategoryId() : categoryId);
                 expense.setUpdatedAt(Instant.now());
                 return true;
             }
         }
         return false;
+    }
+
+    public void setExpensesToUncategorizedByCategoryId(int categoryId) {
+        for (Expense expense : expenses) {
+            if (expense.getCategoryId() == categoryId) {
+                expense.setCategoryId(0);
+                expense.setUpdatedAt(Instant.now());
+            }
+        }
     }
 
     private String[] expenseToArray(Expense expense) {
